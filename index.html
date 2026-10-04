@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vidriera — Ropa argentina en un solo lugar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bunting" id="bunting"></div>
+
+  <header class="site-header">
+    <div class="logo">VIDRIERA</div>
+    <button id="favBtn" class="fav-toggle" aria-pressed="false">
+      <span aria-hidden="true">♥</span> Favoritos (<span id="favCount">0</span>)
+    </button>
+  </header>
+
+  <main>
+  <section class="hero">
+  <div class="carousel">
+    <div class="slide active"><img src="/images/kevingston-eternal.webp" alt="Kevingston Eternal"></div>
+    <div class="slide"><img src="/images/kevingston-himalaya.webp" alt="Kevingston Himalaya" loading="lazy"></div>
+    <div class="slide"><img src="/images/nike-remera.webp" alt="Remera Nike" loading="lazy"></div>
+    <div class="slide"><img src="/images/47-campera-elle.webp" alt="Campera 47 Street" loading="lazy"></div>
+    <div class="slide"><img src="/images/47street-dare.webp" alt="47 Street Dare" loading="lazy"></div>
+    <div class="slide"><img src="/images/portsaid-puffer-duck.webp" alt="Puffer Portsaid" loading="lazy"></div>
+    <div class="slide"><img src="/images/portsaid-minibag-lola.webp" alt="Minibag Portsaid" loading="lazy"></div>
+    <div class="slide"><img src="/images/kevingston-zapatilla-wilmslow.webp" alt="Zapatilla Kevingston" loading="lazy"></div>
+    <div class="carousel-dots" id="carouselDots"></div>
+  </div>
+
+  <div class="hero-content">
+    <h1 class="hero-title">
+      Toda la moda argentina,<br>
+      en una sola cuadra.
+    </h1>
+
+    <p class="hero-sub">
+      Mirá la vidriera de varias marcas nacionales a la vez.
+      Elegís lo que te gusta y te llevamos directo a comprarlo
+      a la tienda oficial.
+    </p>
+
+    <div class="search-wrap">
+      <input id="searchInput" type="search"
+        placeholder="Buscar remeras, jeans, una marca..."
+        aria-label="Buscar productos o marcas" autocomplete="off">
+    </div>
+
+    <ol class="how-it-works">
+      <li><span class="step-num">1</span>Mirás la vidriera</li>
+      <li><span class="step-num">2</span>Elegís lo que te gusta</li>
+      <li><span class="step-num">3</span>Comprás en la tienda oficial</li>
+    </ol>
+  </div>
+
+   <div class="carousel-dots" id="carouselDots"></div>
+  </section>
+
+    <section class="filters">
+      <div class="filter-row" id="categoryRow"></div>
+      <div class="filter-row" id="brandRow"></div>
+    </section>
+
+    <div class="results-toolbar">
+    <p class="result-count" id="resultCount"></p>
+    <label class="sort-label" for="sortSelect">
+    Ordenar por:
+    <select id="sortSelect">
+      <option value="relevance">Más relevantes</option>
+      <option value="price-asc">Precio: menor a mayor</option>
+      <option value="price-desc">Precio: mayor a menor</option>
+      <option value="name-asc">Nombre: A-Z</option>
+      </select>
+      </label>
+      </div>
+
+    <section class="grid" id="grid" aria-live="polite"></section>
+
+    <div class="empty-state" id="emptyState" hidden>
+      <p>No encontramos nada con esos filtros.</p>
+      <button id="clearFiltersBtn" class="clear-btn">Limpiar filtros</button>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>Vidriera</strong> no vende nada directamente: junta indumentaria de distintas marcas para que la encuentres más rápido. Cada compra se hace en el sitio oficial de la marca elegida.</p>
+    <p class="fine-print">Catálogo de ejemplo con fines de prototipo — productos, stock y precios son ilustrativos.</p>
+  </footer>
+
+<script>
+  const HANGER_SVG = `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="50" cy="18" r="7"/>
+    <path d="M50 25 L50 34"/>
+    <path d="M50 34 C20 34 8 60 5 72 C4 76 7 78 10 76 L50 58 L90 76 C93 78 96 76 95 72 C92 60 80 34 50 34 Z"/>
+  </svg>`;
+
+  const brands = [
+    { id:'47street', name:'47 Street',  url:'https://www.47street.com.ar/' },
+    { id:'portsaid', name:'Portsaid',   url:'https://www.portsaid.com.ar/' },
+    { id:'kevingston', name:'Kevingston', url:'https://www.kevingston.com/' },
+    { id:'topper',  name:'Topper',     url:'https://www.topper.com.ar/' },
+    { id:'reebok', name:'Reebok',  url:'https://www.reebok.com.ar/' },
+    { id:'nike',  name:'Nike',  url:'https://www.nike.com.ar/'},
+  ];
+  const brandsById = Object.fromEntries(brands.map(b => [b.id, b]));
+
+  const categoryLabels = {
+    remeras:'Remeras', pantalones:'Pantalones', calzado:'Calzado',
+    abrigos:'Abrigos', accesorios:'Accesorios'
+  };
+
+  let products = [];
+
+  const state = { category:'todo', brands:new Set(), search:'', favOnly:false, sort: 'relevance'};
+  let favorites = new Set();
+  function normalizeText(text) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  }
+
+  // ---- Bunting ----
+  const buntingColors = ['var(--mustard)','var(--coral)','var(--teal)'];
+  const buntingEl = document.getElementById('bunting');
+  for (let i=0;i<40;i++){
+    const f=document.createElement('div');
+    f.className='flag';
+    f.style.background=buntingColors[i%3];
+    buntingEl.appendChild(f);
+  }
+
+  // ---- Filtros ----
+  const categoryRow = document.getElementById('categoryRow');
+  const catList = [['todo','Todo'], ...Object.entries(categoryLabels)];
+  categoryRow.innerHTML = catList.map(([key,label]) =>
+    `<button class="pill${key==='todo'?' active':''}" data-cat="${key}">${label}</button>`
+  ).join('');
+
+  const brandRow = document.getElementById('brandRow');
+  brandRow.innerHTML = brands.map(b =>
+    `<button class="pill brand-pill" data-brand="${b.id}">${b.name}</button>`
+  ).join('');
+
+  categoryRow.addEventListener('click', e => {
+    const btn = e.target.closest('.pill');
+    if (!btn) return;
+    state.category = btn.dataset.cat;
+    [...categoryRow.children].forEach(c => c.classList.toggle('active', c===btn));
+    render();
+  });
+
+  brandRow.addEventListener('click', e => {
+    const btn = e.target.closest('.pill');
+    if (!btn) return;
+    const id = btn.dataset.brand;
+    if (state.brands.has(id)) { state.brands.delete(id); btn.classList.remove('active'); }
+    else { state.brands.add(id); btn.classList.add('active'); }
+    render();
+  });
+
+  document.getElementById('searchInput').addEventListener('input', e => {
+    state.search = e.target.value.trim().toLowerCase();
+    render();
+  });
+
+  const favBtn = document.getElementById('favBtn');
+  favBtn.addEventListener('click', () => {
+    state.favOnly = !state.favOnly;
+    favBtn.classList.toggle('active', state.favOnly);
+    favBtn.setAttribute('aria-pressed', String(state.favOnly));
+    render();
+  });
+
+  document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+    state.category='todo'; state.brands=new Set(); state.search=''; state.favOnly=false;
+    document.getElementById('searchInput').value='';
+    [...categoryRow.children].forEach(c => c.classList.toggle('active', c.dataset.cat==='todo'));
+    [...brandRow.children].forEach(c => c.classList.remove('active'));
+    favBtn.classList.remove('active'); favBtn.setAttribute('aria-pressed','false');
+    render();
+  });
+
+  // ---- Render ----
+  const grid = document.getElementById('grid');
+  const emptyState = document.getElementById('emptyState');
+  const resultCount = document.getElementById('resultCount');
+  const sortSelect = document.getElementById('sortSelect');
+  sortSelect.addEventListener('change', e => {
+  state.sort = e.target.value;
+  render();
+  });
+
+  function cardHTML(p){
+    const brand = brandsById[p.brandId];
+    const isFav = favorites.has(p.id);
+    return `<article class="tag-card" data-id="${p.id}">
+      <button class="heart-btn" data-fav="${isFav}" aria-label="${isFav?'Quitar de favoritos':'Agregar a favoritos'}" aria-pressed="${isFav}">${isFav?'♥':'♡'}</button>
+      <span class="brand-stamp">${brand.name}</span>
+      <div class="img-placeholder cat-${p.category}">
+      <img src="${p.image}" alt="${p.name}">
+      </div>  
+      <h3 class="prod-name">${p.name}</h3>
+      <div class="prod-meta">
+        <span class="cat-label">${categoryLabels[p.category]}</span>
+        <span class="price">$${p.price.toLocaleString('es-AR')}</span>
+      </div>
+      <a class="cta-btn" href="${p.url}" target="_blank" rel="noopener noreferrer">Ver en ${brand.name} ↗</a>
+    </article>`;
+  }
+
+  function render(){
+    const list = products.filter(p => {
+      if (state.category!=='todo' && p.category!==state.category) return false;
+      if (state.brands.size>0 && !state.brands.has(p.brandId)) return false;
+      if (state.favOnly && !favorites.has(p.id)) return false;
+      if (state.search) {
+        const brand = brandsById[p.brandId];
+        const hay = normalizeText(
+          `${p.name} ${brand.name} ${p.category}`
+          );
+        const searchWords = normalizeText(state.search)
+          .split(/\s+/)
+         .filter(Boolean);
+
+        const matchesAll = searchWords.every(word =>
+           hay.includes(word)
+          );
+      if (!matchesAll) return false;
+      }
+      return true;
+    });
+
+    // ORDENAMIENTO
+    if (state.sort === 'price-asc') {
+    list.sort((a, b) => a.price - b.price);
+    }
+
+    if (state.sort === 'price-desc') {
+    list.sort((a, b) => b.price - a.price);
+    }
+
+    if (state.sort === 'name-asc') {
+    list.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    }
+
+    grid.innerHTML = list.map(cardHTML).join('');
+    emptyState.hidden = list.length>0;
+    const brandCount = new Set(list.map(p=>p.brandId)).size;
+    resultCount.textContent = list.length
+      ? `${list.length} prenda${list.length===1?'':'s'} de ${brandCount} marca${brandCount===1?'':'s'}`
+      : '';
+  }
+
+  grid.addEventListener('click', e => {
+    const heart = e.target.closest('.heart-btn');
+    if (!heart) return;
+    const card = heart.closest('.tag-card');
+    const id = card.dataset.id;
+    if (favorites.has(id)) favorites.delete(id); else favorites.add(id);
+    updateFavUI();
+    render();
+    saveFavorites();
+  });
+
+  function updateFavUI(){
+    document.getElementById('favCount').textContent = favorites.size;
+  }
+
+  -
+  async function loadFavorites(){
+    if (!window.storage) return;
+    try {
+      const res = await window.storage.get('favoritos');
+      if (res && res.value) favorites = new Set(JSON.parse(res.value));
+    } catch (e) {
+      // todavía no hay favoritos guardados, arrancamos vacío
+    } finally {
+      updateFavUI();
+      render();
+    }
+  }
+  async function saveFavorites(){
+    if (!window.storage) return;
+    try {
+      await window.storage.set('favoritos', JSON.stringify(Array.from(favorites)));
+    } catch (e) {
+      console.error('No se pudieron guardar los favoritos', e);
+    }
+  }
+
+  async function loadProducts(){
+  try {
+    const response = await fetch('/api/productos');
+    products = await response.json();
+    render();
+  } catch (error) {
+    console.error('No se pudieron cargar los productos:', error);
+  }
+}
+
+// ---- Carrusel ----
+const slides = [...document.querySelectorAll('.carousel .slide')];
+const dotsEl = document.getElementById('carouselDots');
+const hero = document.querySelector('.hero');
+let current = 0;
+let timer;
+
+const dots = slides.map((_, i) => {
+  const d = document.createElement('button');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.setAttribute('aria-label', `Ir a la imagen ${i + 1}`);
+  d.addEventListener('click', () => { goTo(i); start(); });
+  dotsEl.appendChild(d);
+  return d;
+});
+
+function goTo(i) {
+  slides[current].classList.remove('active');
+  dots[current].classList.remove('active');
+  current = (i + slides.length) % slides.length;
+  slides[current].classList.add('active');
+  dots[current].classList.add('active');
+}
+
+function start() {
+  clearInterval(timer);
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  timer = setInterval(() => goTo(current + 1), 5000);
+}
+
+hero.addEventListener('mouseenter', () => clearInterval(timer));
+hero.addEventListener('mouseleave', start);
+start();
+
+loadProducts();
+loadFavorites();
+</script>
+</body>
+</html>
